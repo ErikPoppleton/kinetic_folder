@@ -24,35 +24,7 @@ def partial_ideal(ref):
     
     return(ref_transformed)
 
-# Turn a db string into a dict
-def dict_dot_bracket(db):
-    open_stack = []
-    pairs = {}
-    for i, c in enumerate(db):
-        if c == '(':
-            open_stack.append(i)
-        elif c == ')':
-            j = open_stack.pop()
-            pairs[i+1] = j+1 # ViennaRNA appears to be 1-indexed!
-            pairs[j+1] = i+1
 
-    return(pairs)
-
-def list_dot_bracket(db):
-    open_stack = []
-    out = np.zeros(len(db))
-    for i, c in enumerate(db):
-        if c == '(':
-            open_stack.append(i)
-        elif c == ')':
-            j = open_stack.pop()
-            out[i] = j
-            out[j] = i
-        elif c == '.':
-            out[i] = -1
-
-
-    return(out)
 
 # Energy correction which penalizes base pairs which were not present in the last iteration
 # The penalty is equal to ...% of the dinucleotide step which needs to be broken
