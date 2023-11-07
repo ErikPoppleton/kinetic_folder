@@ -23,6 +23,8 @@ def calc_MCC(prediction, ref):
                 FP += 1
 
     MCC = ((TP * TN) - (FP * FN)) / np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+    if np.isnan(MCC):
+        return(-1)
 
     return MCC
 
