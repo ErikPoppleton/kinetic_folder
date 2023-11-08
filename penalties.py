@@ -1,4 +1,5 @@
 import RNA
+import numpy as np
 from utils import dict_dot_bracket
 
 #penalize opening a base pair by a constant amount
@@ -43,3 +44,25 @@ def penalize_barriers_seq(i, j, k, l, d, arg_dict):
                 return penalty
             
     return 0 
+
+def pairing_frequency(ensemble):
+    freqs = np.zeros(len(ensemble[0].structure))
+    energies = np.array([e.energy for e in ensemble])
+    energies *= -1 * 1.624
+    probs = np.exp(energies) / np.sum(np.exp(energies))
+    for e, prob in zip(ensemble, probs):
+        structure = e.structure
+        for i, c in enumerate(structure):
+            if c == '(' or c == ')':
+                freqs[i] += prob
+
+    return freqs
+
+
+def penalize_barriers_ensemble(i, j, k, l, d, arg_dict):
+    if d in [RNA.DECOMP_PAIR_IL, RNA.DECOMP_PAIR_HP, RNA.DECOMP_PAIR_ML]:
+        freqs = arg_dict['freqs']
+        penalty = arg_dict['penalty']
+        return int(freqs[i] * penalty)
+
+    return 0
