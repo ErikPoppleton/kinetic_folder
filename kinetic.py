@@ -4,6 +4,7 @@ import numpy as np
 from scipy.spatial import distance
 import matplotlib.pyplot as plt
 import argparse
+from utils import dict_dot_bracket
 
 # If something in the full seq is paired to something which doesn't exist in the subseq
 # Then I don't think it counts as a missfold if that nucleotide is unpaired in the subseq fold
