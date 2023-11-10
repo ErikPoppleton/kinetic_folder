@@ -90,6 +90,32 @@ def parse_rdat(filename):
 
     return(data)
 
+def parse_drt_file(filename, ref_dict):
+    out_dict = {}
+
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+
+    last_len = 0
+    start_len = min(list(ref_dict.keys()))
+    for l in lines:
+        l = l.strip()
+        if '#' in l:
+            continue
+        l = l.split()
+        curr_len = int(l[0])
+        if curr_len < start_len:
+            continue
+        if curr_len == last_len: # The MFE structure for each length if the first line with that length
+            continue
+        out_dict[curr_len] = {
+            'seq' : ref_dict[curr_len]['seq'],
+            'mfe' : l[2]
+        }
+        last_len = curr_len
+
+    return out_dict
+
 # Display in a Forna iframe
 def forna_display(seq, struct, cols={}):
     col_str = '\\n'.join([f'{k}:{cols[k]}' for k in cols.keys()])

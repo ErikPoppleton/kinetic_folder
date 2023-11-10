@@ -18,7 +18,7 @@ def penalize_barriers(i, j, k, l, d, arg_dict):
             
     return 0
 
-# eval_move is really expensive, so pre-assemble penalties 
+# eval_move is really expensive, so pre-assemble penalties for penalize_barriers_seq
 def get_penalties(last, fc):
     last_dict = dict_dot_bracket(last)
     out = {}
@@ -48,6 +48,8 @@ def penalize_barriers_seq(i, j, k, l, d, arg_dict):
             
     return 0 
 
+# Get the frequency with which a particular base pair is formed
+# Optionally also compute the cost of breaking that pair
 def pairing_frequency(ensemble, last_fc=None):
     freqs = np.zeros((len(ensemble[0].structure), len(ensemble[0].structure)))
     energies = np.array([e.energy for e in ensemble])
@@ -75,6 +77,7 @@ def pairing_frequency(ensemble, last_fc=None):
 
     return freqs
 
+# Penalty based on the frequency with which i,j are not paired in the ensemble
 def penalize_barriers_ensemble(i, j, k, l, d, arg_dict):
     if d in [RNA.DECOMP_PAIR_IL, RNA.DECOMP_PAIR_HP, RNA.DECOMP_PAIR_ML]:
         freqs = arg_dict['freqs']
@@ -82,3 +85,95 @@ def penalize_barriers_ensemble(i, j, k, l, d, arg_dict):
         return int(freqs[i-1][j-1] * penalty)
 
     return 0
+
+# All the constraint funcitons have the same arguments so I can call them en-mass
+def no_constraint(seq, _, _2, md=RNA.md()):
+    fc = RNA.fold_compound(seq, md)
+    return fc.mfe()
+
+def shape_constraint(seq, reactivities, md=RNA.md()):
+    fc = RNA.fold_compound(seq, md)
+    #fc.sc_add_SHAPE_deigan(reactivities, 2.6, -0.8)
+    fc.sc_add_SHAPE_zarringhalam(reactivities, 0.8, 0.5, 'M')
+    return fc.mfe()
+
+def constant_penalty(seq, penalty, last_structure, md=RNA.md()):
+    fc = RNA.fold_compound(seq, md)
+    step_info = {
+            'last' : dict_dot_bracket(last_structure),
+            'penalty' : int(penalty)
+        }
+    fc.sc_add_f(penalize_barriers)
+    fc.sc_add_data(step_info)
+
+    return fc.mfe()
+
+def sequence_dependent_penalty(seq, penalty_percent, last_structure, md=RNA.md()):
+    fc = RNA.fold_compound(seq, md)
+    if last_structure != '':
+        fc_last = RNA.fold_compound(seq[:len(last_structure)], md)
+        penalty_dict = get_penalties(last_structure, fc_last)
+        #p_list.extend([v for v in penalty_dict.values()]) #was used to get average penalty
+    else:
+        penalty_dict = {}
+    step_info = {
+        'last_dict' : dict_dot_bracket(last_structure),
+        'penalty_dict' : penalty_dict,
+        'penalty_percent' : penalty_percent
+        }
+    fc.sc_add_f(penalize_barriers_seq)
+    fc.sc_add_data(step_info)
+
+    return fc.mfe()
+
+# This didn't work very well and made the function swapping complicated with its extra argument
+#def hierarchical_fold(seq, penalty, last_structure, span):
+#    mds = RNA.md()
+#    mds.temperature = 37
+#    mds.max_bp_span = span
+#    step_info = {
+#        'last' : dict_dot_bracket(last_structure),
+#        'penalty' : int(penalty)
+#    }
+#    fc = RNA.fold_compound(seq, mds)
+#    fc.sc_add_f(penalize_barriers)
+#    fc.sc_add_data(step_info)
+#
+#    return fc.mfe()
+
+def constant_ensemble_penalty(seq, penalty, last_ensemble, md=RNA.md()):
+    if last_ensemble != []:
+        last_freqs = pairing_frequency(last_ensemble)
+    else:
+        last_freqs = np.zeros(len(seq))
+
+    freqs = np.zeros((len(seq), len(seq)))
+    freqs[:len(last_freqs), :len(last_freqs)] = last_freqs
+        
+    step_info = {
+        'freqs' : freqs,
+        'penalty' : int(penalty)
+    }
+    fc = RNA.fold_compound(seq, md)
+    fc.sc_add_f(penalize_barriers_ensemble)
+    fc.sc_add_data(step_info)
+    return fc.subopt(500)
+
+def sequence_dependent_ensemble_penalty(seq, percent, last_ensemble, md=RNA.md()):
+    if last_ensemble != []:
+        fc_last = RNA.fold_compound(seq[:len(last_ensemble[0].structure)], md)
+        last_freqs = pairing_frequency(last_ensemble, fc_last)
+    else:
+        last_freqs = np.zeros(len(seq))
+
+    freqs = np.zeros((len(seq), len(seq)))
+    freqs[:len(last_freqs), :len(last_freqs)] = last_freqs
+        
+    step_info = {
+        'freqs' : freqs,
+        'penalty' : percent
+    }
+    fc = RNA.fold_compound(seq, md)
+    fc.sc_add_f(penalize_barriers_ensemble)
+    fc.sc_add_data(step_info)
+    return fc.subopt(500)
