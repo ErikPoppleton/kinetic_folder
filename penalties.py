@@ -55,20 +55,22 @@ def pairing_frequency(ensemble, last_fc=None):
     probs = np.exp(energies) / np.sum(np.exp(energies))
     for e, prob in zip(ensemble, probs):
         structure = e.structure
-        print(structure)
         db = dict_dot_bracket(structure)
-        print(db)
         for k in db.keys():
+            if k > db[k]: # calculating eval_move on i > j returns bad stuff
+                continue
             if last_fc == None:
                 # Probability that i and j are paired
                 freqs[k-1][db[k]-1] += prob # Vienna is 1-indexed, so dict_db is as well
             else:
                 # Probability that i and j are paired, multiplied by the energy penalty for breaking them
-                freqs[k-1][db[k]-1] += prob * last_fc.eval_move(structure, -1*k, -1*db[k]) * 100
+                move_cost = last_fc.eval_move(structure, -1*k, -1*db[k])
+                freqs[k-1][db[k]-1] += prob * move_cost * 100 # eval_move returns kcal/mol, need dcal/mol
+                freqs[db[k]-1][k-1] += prob * move_cost * 100 # do it symmetrically so there's a penalty on opening closing nucleotides
 
     # What we have is:  freqs[i][j] = p(i_paired_to_j)
     # What we want is:  freqs[i][j] = p(i_paired_to_not_j)
-    freqs -= np.sum(freqs, axis=1)[:, np.newaxis] # something isn't right here. Ending up with negative penalties
+    freqs -= np.sum(freqs, axis=1)[:, np.newaxis] # negative penalties can happen!
     freqs *= -1
 
     return freqs
