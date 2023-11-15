@@ -2,11 +2,18 @@
 from IPython.display import IFrame
 import numpy as np
 
+# Calculate the matthews correlation coefficient
+# prediction and ref are both lists where unpaired=-1
 def calc_MCC(prediction, ref):
     TP = 0
     FP = 0
     FN = 0
     TN = 0
+
+    if type(prediction) == str:
+        prediction = list_dot_bracket(prediction)
+    if type(ref) == str:
+        ref = list_dot_bracket(ref)
 
     for i in range(len(prediction)):
         if ref[i] != -1:                # reference is paired
@@ -23,8 +30,11 @@ def calc_MCC(prediction, ref):
                 FP += 1
 
     MCC = ((TP * TN) - (FP * FN)) / np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+    # For example, when ref is all-unpaired string
+    # TP + FN = 0 and this div by 0s
     if np.isnan(MCC):
-        return(-1)
+        print("WARNING: undefined MCC.  Returning -1")
+        return(-1) #this might not be the right thing to do...
 
     return MCC
 
@@ -42,6 +52,7 @@ def dict_dot_bracket(db):
 
     return(pairs)
 
+# Turn a db string into a list
 def list_dot_bracket(db):
     open_stack = []
     out = np.zeros(len(db))
@@ -90,6 +101,7 @@ def parse_rdat(filename):
 
     return(data)
 
+# Parse a drtransformer log file and return a correctly formatted dict
 def parse_drt_file(filename, ref_dict):
     out_dict = {}
 
@@ -115,6 +127,43 @@ def parse_drt_file(filename, ref_dict):
         last_len = curr_len
 
     return out_dict
+
+def parse_dp_file(filename):
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    
+    # These files are awful.  The sequence and db are split over multiple lines...
+
+    data = {}
+    currname = ''
+    currseq = ''
+    currdb = ''
+
+    for l in lines:
+        if l.startswith('#') and ('.dp') in l: # this line contains a new filename
+            if currname != '':
+                data[currname] = {
+                    'seq' : currseq,
+                    'db' : currdb
+                }
+                currseq = ''
+                currdb = ''
+            currname = l.strip('# File .dp\n')
+        elif l.startswith('#'): # one of the other header lines
+            continue
+        elif 'A' in l or 'U' in l or 'G' in l or 'C' in l:
+            currseq = currseq + l.strip()
+        elif '.' in l or '(' in l or ')' in l:
+            currdb = currdb + l.strip()
+        else:
+            continue
+
+    data[currname] = {
+                'seq' : currseq,
+                'db' : currdb
+            }
+    
+    return data
 
 # Display in a Forna iframe
 def forna_display(seq, struct, cols={}):

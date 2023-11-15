@@ -5,6 +5,10 @@ from utils import dict_dot_bracket
 # According to https://pubs.acs.org/doi/full/10.1021/jacs.0c03105
 # dG for each BM step is between 7.4 and 8.9 KbT (4.5-5.5 kcal/mol @ 37)
 
+##################################
+###     PENALTY FUNCTIONS      ###
+##################################
+
 #penalize opening a base pair by a constant amount
 def penalize_barriers(i, j, k, l, d, arg_dict):
     penalty = arg_dict['penalty'] # 20 is the best constant value for this.
@@ -26,7 +30,7 @@ def get_penalties(last, fc):
         if c == '(' or c == ')':
             p = min((i+1, last_dict[i+1]))
             q = max((i+1, last_dict[i+1]))
-            out[i+1] = int(fc.eval_move(last, -p, -q) * 100) # eval_move returns kcal/mol, penalties must be in dcal/mol
+            out[i+1] = int(fc.eval_move(last, -p, -q) * 100) # eval_move returns kcal/mol, penalties must be ints in dcal/mol
 
     return out
 
@@ -86,7 +90,11 @@ def penalize_barriers_ensemble(i, j, k, l, d, arg_dict):
 
     return 0
 
-# All the constraint funcitons have the same arguments so I can call them en-mass
+##################################
+###     FOLDING FUNCTIONS      ###
+##################################
+
+# All the constraint functions have the same arguments so I can call them en-mass
 def no_constraint(seq, _, _2, md=RNA.md()):
     fc = RNA.fold_compound(seq, md)
     return fc.mfe()
@@ -157,6 +165,7 @@ def constant_ensemble_penalty(seq, penalty, last_ensemble, md=RNA.md()):
     fc = RNA.fold_compound(seq, md)
     fc.sc_add_f(penalize_barriers_ensemble)
     fc.sc_add_data(step_info)
+
     return fc.subopt(500)
 
 def sequence_dependent_ensemble_penalty(seq, percent, last_ensemble, md=RNA.md()):
@@ -176,4 +185,5 @@ def sequence_dependent_ensemble_penalty(seq, percent, last_ensemble, md=RNA.md()
     fc = RNA.fold_compound(seq, md)
     fc.sc_add_f(penalize_barriers_ensemble)
     fc.sc_add_data(step_info)
+
     return fc.subopt(500)
